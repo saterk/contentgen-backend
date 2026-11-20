@@ -1,0 +1,55 @@
+# ---- secrets (keep the template) -------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- python ----------------------------------------------------------------
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+
+# ---- tests, coverage, linters, type checkers ---------------------------------
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.ipynb_checkpoints/
+
+# ---- runtime output ----------------------------------------------------------
+# Generated data normally lives in ../data (DATA_DIR). These cover a DATA_DIR
+# pointed inside backend/, plus logs and local databases.
+data/
+*.log
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.tmp
+
+# ---- editors / OS ------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

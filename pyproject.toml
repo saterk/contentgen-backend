@@ -1,0 +1,33 @@
+[project]
+name = "content-creator-backend"
+version = "0.1.0"
+description = "Module 3 – AI Content Creator prototype backend (chat only)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlmodel>=0.0.22",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.4",
+    "pyyaml>=6.0",
+    "pillow>=10.1",
+    "openai>=1.40",  # client for OpenAI-compatible APIs (OpenRouter, OpenAI)
+    "chromadb-client>=1.0",  # HTTP-only Chroma client (Chroma Cloud / self-hosted)
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
