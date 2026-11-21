@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 
 from fastapi import APIRouter, Depends
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import Response
 from sqlmodel import Session, col, select
 
 from app.api.deps import get_ctx, require_app_token
@@ -50,6 +53,21 @@ def _image(img: ImageAsset, ctx: AppContext) -> dict:
         "passed": img.passed,
         "check": json.loads(img.check_json or "{}"),
     }
+
+
+@router.get("/images/{image_id}/file")
+async def get_image_file(image_id: str, ctx: AppContext = Depends(get_ctx)) -> Response:
+    """Image bytes through the API, so the web app can copy / export it without bucket CORS."""
+    with Session(ctx.engine) as s:
+        img = s.get(ImageAsset, image_id)
+    if img is None:
+        raise APIError(404, f"Image '{image_id}' not found", "invalid_request_error", "not_found")
+    try:
+        data = await run_in_threadpool(ctx.storage.read, img.path)
+    except FileNotFoundError:
+        raise APIError(404, f"Image file for '{image_id}' is missing", "invalid_request_error", "not_found") from None
+    media_type = mimetypes.guess_type(img.path)[0] or "application/octet-stream"
+    return Response(data, media_type=media_type, headers={"Cache-Control": "private, max-age=86400"})
 
 
 @router.get("/items/{item_id}")

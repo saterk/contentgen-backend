@@ -14,6 +14,15 @@ class FakeS3:
     def put_object(self, Bucket, Key, Body, ContentType, **kw):
         self.objects[f"{Bucket}/{Key}"] = (Body, ContentType)
 
+    def get_object(self, Bucket, Key):
+        import io
+
+        if f"{Bucket}/{Key}" not in self.objects:
+            err = Exception("NoSuchKey")
+            err.response = {"Error": {"Code": "NoSuchKey"}}
+            raise err
+        return {"Body": io.BytesIO(self.objects[f"{Bucket}/{Key}"][0])}
+
     def generate_presigned_url(self, op, Params, ExpiresIn):
         assert op == "get_object"
         return f"https://acc.r2.cloudflarestorage.com/{Params['Bucket']}/{Params['Key']}?X-Amz-Expires={ExpiresIn}&X-Amz-Signature=x"
@@ -37,6 +46,19 @@ def test_r2_store_uploads_keeps_local_copy_and_presigns(tmp_path):
     assert s.local_path("itm_1.jpg").read_bytes() == b"jpg", "local copy for the image judge"
     url = s.url("itm_1.jpg")
     assert url.startswith("https://") and "images/itm_1.jpg" in url and "X-Amz-Expires=600" in url
+
+
+def test_r2_read_falls_back_to_bucket_and_caches(tmp_path):
+    import pytest
+
+    s3 = FakeS3()
+    s = R2ImageStore(tmp_path / "cache", bucket="cc", client=s3)
+    s.save("a.jpg", b"jpg", "image/jpeg")
+    s.local_path("a.jpg").unlink()  # e.g. Render restarted and the disk cache is gone
+    assert s.read("a.jpg") == b"jpg"
+    assert s.local_path("a.jpg").exists()
+    with pytest.raises(FileNotFoundError):
+        s.read("missing.jpg")
 
 
 def test_r2_public_base_url(tmp_path):
@@ -72,6 +94,14 @@ def test_pipeline_saves_through_the_store_and_api_returns_store_urls(client):
     item = client.get(f"/api/items/{item_id}").json()
     assert len(s3.objects) == 1
     assert item["images"][0]["url"].startswith("https://acc.r2.cloudflarestorage.com/cc/images/")
+
+    # the API also serves the bytes (copy / download in the web app), even without the local copy
+    img = item["images"][0]
+    (body,) = [v[0] for v in s3.objects.values()]
+    ctx.storage.local_path(img["url"].split("/images/")[1].split("?")[0]).unlink()
+    r = client.get(f"/api/images/{img['id']}/file")
+    assert r.status_code == 200 and r.content == body and r.headers["content-type"].startswith("image/")
+    assert client.get("/api/images/nope/file").status_code == 404
 
 
 def test_database_url_normalisation():

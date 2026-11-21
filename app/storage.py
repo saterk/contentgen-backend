@@ -29,8 +29,21 @@ class ImageStore(ABC):
         self.local_path(key).write_bytes(data)
         self._put(key, data, content_type)
 
+    def read(self, key: str) -> bytes:
+        """Image bytes: the local copy when present, else the store (and cache it locally)."""
+        path = self.local_path(key)
+        if path.is_file():
+            return path.read_bytes()
+        data = self._get(key)
+        path.write_bytes(data)
+        return data
+
     @abstractmethod
     def _put(self, key: str, data: bytes, content_type: str) -> None: ...
+
+    @abstractmethod
+    def _get(self, key: str) -> bytes:
+        """Raise FileNotFoundError when the image does not exist."""
 
     @abstractmethod
     def url(self, key: str) -> str:
@@ -42,6 +55,9 @@ class LocalImageStore(ImageStore):
 
     def _put(self, key: str, data: bytes, content_type: str) -> None:
         pass  # the local copy is the store
+
+    def _get(self, key: str) -> bytes:
+        raise FileNotFoundError(key)
 
     def url(self, key: str) -> str:
         return f"/images/{key}"
@@ -92,6 +108,16 @@ class R2ImageStore(ImageStore):
             Bucket=self.bucket, Key=self._key(key), Body=data, ContentType=content_type,
             CacheControl="private, max-age=86400",
         )
+
+    def _get(self, key: str) -> bytes:
+        try:
+            obj = self.client.get_object(Bucket=self.bucket, Key=self._key(key))
+        except Exception as exc:  # botocore ClientError (NoSuchKey) and friends
+            code = getattr(exc, "response", {}).get("Error", {}).get("Code", "")
+            if code in ("NoSuchKey", "404", "NotFound"):
+                raise FileNotFoundError(key) from exc
+            raise
+        return obj["Body"].read()
 
     def url(self, key: str) -> str:
         if self.public_base_url:
