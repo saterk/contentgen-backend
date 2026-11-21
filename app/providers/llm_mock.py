@@ -13,6 +13,7 @@ import re
 import zlib
 from typing import Any
 
+from app.pipeline.i18n import DONE_MARKERS
 from app.providers.llm_base import LLMProvider, LLMResponse, estimate_tokens
 
 # --- requirement extraction --------------------------------------------------
@@ -82,11 +83,25 @@ def _unlabelled_answer(text: str, question: str, req: dict[str, Any], has_count:
     return {(missing or asked)[0]: reply}
 
 
+MOCK_REPLY = (
+    "I'm the content creator assistant (mock). Tell me the product, the customer segment and how many "
+    "pieces you need, e.g. Product: CI. Segment: young families. Make 3 pieces."
+)
+
+
 def extract_requirement(messages: list[dict[str, Any]]) -> dict[str, Any]:
-    """Merge requirement fields across the conversation; later messages override earlier ones."""
+    """Classify the latest message and merge requirement fields within the current request.
+
+    A request ends with the assistant's "Done:" summary; later messages start fresh.
+    A latest message with nothing to read (and not answering a question) is chat.
+    """
+    last_done = max((i for i, m in enumerate(messages) if m.get("role") == "assistant"
+                     and any(k in _text(m.get("content")) for k in DONE_MARKERS)), default=-1)
+    scope = messages[last_done + 1:]
     req: dict[str, Any] = {}
     last_assistant = ""
-    for msg in messages:
+    latest_found: dict[str, Any] = {}
+    for msg in scope:
         role, text = msg.get("role"), _text(msg.get("content"))
         if role == "assistant":
             last_assistant = text.lower()
@@ -97,7 +112,10 @@ def extract_requirement(messages: list[dict[str, Any]]) -> dict[str, Any]:
         if last_assistant and not any(k != "count" for k in found):
             found.update(_unlabelled_answer(text, last_assistant, req, has_count="count" in found))
         req.update(found)
-    return req
+        latest_found = found
+    if not latest_found:
+        return {"intent": "chat", "reply": MOCK_REPLY}
+    return {**req, "intent": "answer" if last_assistant else "request"}
 
 
 # --- angles and briefs -------------------------------------------------------

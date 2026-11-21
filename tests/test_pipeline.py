@@ -322,7 +322,7 @@ def test_cartoon_given_as_style_becomes_visual_style(ctx):
     r = req.data["request"]
     assert r["visual_style"] == "cartoon"
     assert r["profile"]["style"] == "story" and r["profile"]["tone"] == "friendly" and r["profile"]["format"] == "single_image_cta"
-    assert "visual style" in req.text
+    assert "แนวภาพ" in req.text, "Thai words in the message -> Thai summary"
     with Session(ctx.engine) as s:
         prompt = s.exec(select(ImageAsset)).one().prompt
         tags = json.loads(s.exec(select(ContentItem)).one().tags_json)
@@ -338,3 +338,90 @@ def test_explicit_visual_style_label(ctx):
 def test_unknown_style_that_is_not_visual_still_asks(ctx):
     q = run(ctx, FULL_REQUEST.format(n=1).replace("Style: story", "Style: meme"))[-1]
     assert q.type == "needs_input" and q.data["missing"] == ["style"]
+
+
+# ---- chat vs request, and request scope -------------------------------------
+
+
+def test_chat_message_gets_a_reply_and_generates_nothing(ctx):
+    events = run(ctx, "who are you")
+    assert [e.type for e in events if e.type] == ["reply"]
+    assert "content creator" in events[-1].text
+    with Session(ctx.engine) as s:
+        assert s.exec(select(ContentItem)).all() == []
+
+
+def test_chat_after_a_finished_request_does_not_repeat_it(ctx):
+    first = run(ctx, FULL_REQUEST.format(n=1))
+    done_text = "".join(e.text for e in first)
+    events = run(ctx, [
+        {"role": "user", "content": FULL_REQUEST.format(n=1)},
+        {"role": "assistant", "content": done_text},
+        {"role": "user", "content": "who are you"},
+    ])
+    assert [e.type for e in events if e.type] == ["reply"]
+    with Session(ctx.engine) as s:
+        assert len(s.exec(select(ContentItem)).all()) == 1, "no new pieces were generated"
+
+
+def test_new_request_after_done_does_not_inherit_old_fields(ctx):
+    first = run(ctx, FULL_REQUEST.format(n=1))
+    events = run(ctx, [
+        {"role": "user", "content": FULL_REQUEST.format(n=1)},
+        {"role": "assistant", "content": "".join(e.text for e in first)},
+        {"role": "user", "content": "Segment: first jobber. Make 2 pieces."},
+    ])
+    q = events[-1]
+    assert q.type == "needs_input" and q.data["missing"] == ["product"], "product is not carried over from the finished request"
+
+
+def test_streaming_reply_is_a_final_event(client):
+    with client.stream("POST", "/v1/chat/completions", json={
+        "model": "content-creator", "stream": True, "messages": [{"role": "user", "content": "hello"}],
+    }) as r:
+        import json as _json
+        chunks = [_json.loads(l[6:]) for l in r.read().decode().splitlines() if l.startswith("data: {")]
+    final = chunks[-1]
+    assert final["choices"][0]["finish_reason"] == "stop" and final["x_event"]["type"] == "reply"
+
+
+# ---- reply language follows the user ---------------------------------------
+
+
+def test_detect_language():
+    from app.pipeline.i18n import detect_language
+
+    assert detect_language([{"role": "user", "content": "ขอ 2 ภาพ"}]) == "th"
+    assert detect_language([{"role": "user", "content": "make 2 posts"}]) == "en"
+    # a bare number keeps the previous message's language
+    assert detect_language([{"role": "user", "content": "ภาษาไทยได้ไหม"}, {"role": "assistant", "content": "x"},
+                            {"role": "user", "content": "3"}]) == "th"
+
+
+def test_thai_request_gets_thai_messages(ctx):
+    events = run(ctx, "ผลิตภัณฑ์: CI. กลุ่มลูกค้า: young families. ขอ 1 ชิ้น")
+    text = "".join(e.text for e in events)
+    assert "สรุปสิ่งที่เข้าใจครับ" in text and "แผนงาน:" in text and "เสร็จแล้ว:" in text and "[ชิ้นที่ 1]" in text
+    assert "Here's what I understood" not in text and "Done:" not in text
+    assert "สไตล์: story (ค่าเริ่มต้น" in text
+
+
+def test_thai_question_is_in_thai(ctx):
+    q = run(ctx, "กลุ่มลูกค้า: young families. ขอ 1 ชิ้น")[-1]
+    assert q.type == "needs_input"
+    assert q.text.startswith("ขอข้อมูลเพิ่มอีกนิด") and "ต้องการทำคอนเทนต์สำหรับผลิตภัณฑ์อะไรครับ" in q.text
+
+
+def test_thai_did_you_mean_is_in_thai(ctx):
+    q = run(ctx, "ผลิตภัณฑ์: CI. กลุ่มลูกค้า: young families or first jobbers. ขอ 1 ชิ้น")[-1]
+    assert q.type == "needs_input" and "ใช่ไหมครับ" in q.text and " หรือ " in q.text
+
+
+def test_thai_done_ends_the_request_scope(ctx):
+    first = run(ctx, "ผลิตภัณฑ์: CI. กลุ่มลูกค้า: young families. ขอ 1 ชิ้น")
+    events = run(ctx, [
+        {"role": "user", "content": "ผลิตภัณฑ์: CI. กลุ่มลูกค้า: young families. ขอ 1 ชิ้น"},
+        {"role": "assistant", "content": "".join(e.text for e in first)},
+        {"role": "user", "content": "คุณเป็นใคร"},
+    ])
+    assert [e.type for e in events if e.type] == ["reply"]

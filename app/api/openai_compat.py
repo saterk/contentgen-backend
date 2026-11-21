@@ -24,6 +24,8 @@ from app.api.errors import APIError
 from app.models import Conversation, new_id, utcnow
 from app.pipeline import events as ev
 from app.pipeline.context import AppContext
+from app.pipeline.i18n import detect_language
+from app.pipeline.i18n import t as tr
 from app.pipeline.piece import MODE_BRIEF, MODE_FULL
 from app.pipeline.runner import run_chat
 
@@ -137,7 +139,7 @@ async def _events(ctx: AppContext, body: ChatCompletionRequest, conversation_id:
         log.exception("chat request failed")
         yield ev.Event(
             type=ev.ERROR,
-            text=f"\nSorry, something went wrong: {type(exc).__name__}: {exc}\n",
+            text="\n" + tr(detect_language(messages), "error", detail=f"{type(exc).__name__}: {exc}") + "\n",
             data={"conversation_id": conversation_id, "message": str(exc)},
         )
 

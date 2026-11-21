@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.kb.files import TAXONOMY_FIELDS
+from app.pipeline.i18n import detect_language, field_name
+from app.pipeline.i18n import t as tr
 from app.models import new_id
 from app.pipeline.context import AppContext
 from app.pipeline.tools import ToolBudget
@@ -37,6 +39,13 @@ class NeedsInput:
 
 
 @dataclass
+class Reply:
+    """A chat message that isn't a content request: answer it, generate nothing."""
+
+    text: str
+
+
+@dataclass
 class Understood:
     request: ContentRequest
     segment_name: str
@@ -44,17 +53,19 @@ class Understood:
     segment_knowledge: list[KBChunk]
     product_knowledge: list[KBChunk]
     notes: list[str] = field(default_factory=list)
+    lang: str = "en"  # the user's language for the agent's own messages
 
     def summary(self) -> str:
         r = self.request
         p = r.profile
+        L = self.lang
         lines = [
-            "Here's what I understood:",
-            f"- **Product:** {self.product_name} (`{r.product_id}`)",
-            f"- **Segment:** {self.segment_name} (`{r.segment_id}`)",
-            f"- **Style / tone / format:** {p.style} / {p.tone} / {p.format} · **Visual style:** {r.visual_style}",
-            f"- **Pieces:** {r.count} · **Channel:** {r.channel} · **Language:** {r.language}",
-            f"- **Objective:** {r.objective}",
+            tr(L, "understood"),
+            f"- **{tr(L, 's_product')}:** {self.product_name} (`{r.product_id}`)",
+            f"- **{tr(L, 's_segment')}:** {self.segment_name} (`{r.segment_id}`)",
+            f"- **{tr(L, 's_profile')}:** {p.style} / {p.tone} / {p.format} · **{tr(L, 's_visual')}:** {r.visual_style}",
+            f"- **{tr(L, 's_pieces')}:** {r.count} · **{tr(L, 's_channel')}:** {r.channel} · **{tr(L, 's_language')}:** {r.language}",
+            f"- **{tr(L, 's_objective')}:** {r.objective}",
         ]
         lines += [f"- _{n}_" for n in self.notes]
         return "\n".join(lines) + "\n\n"
@@ -66,6 +77,7 @@ class Orchestrator:
         self.rl = rl
         self.request_id = request_id
         self.budget = ToolBudget(ctx.settings.request_tool_call_limit, "request phase")
+        self.lang = "en"  # set from the user's latest message in understand()
 
     # ---- 1. extract ----------------------------------------------------
     async def extract(self, messages: list[dict[str, Any]]) -> RequirementDraft:
@@ -88,6 +100,7 @@ class Orchestrator:
                 task="extract_requirement",
                 system=self.ctx.prompts.get("orchestrator"),
                 user="Task: extract_requirement\n\n"
+                f"Reply language (for `reply`): {'Thai' if detect_language(messages) == 'th' else 'English'}\n\n"
                 "Allowed style, tone and format values (key = value to return, list = example wordings):\n"
                 "```json\n" + json.dumps(allowed, ensure_ascii=False) + "\n```\n\n"
                 "Products and segments we have knowledge for (the user may name them loosely, "
@@ -103,26 +116,31 @@ class Orchestrator:
         return res.value
 
     # ---- 2–4. validate, resolve, load knowledge -------------------------
-    async def understand(self, messages: list[dict[str, Any]], conversation_id: str) -> NeedsInput | Understood:
+    async def understand(
+        self, messages: list[dict[str, Any]], conversation_id: str
+    ) -> NeedsInput | Understood | Reply:
         s = self.ctx.settings
         tax = self.ctx.kb.taxonomy
+        L = self.lang = detect_language(messages)
         draft = await self.extract(messages)
+        if draft.intent == "chat":
+            return Reply(text=(draft.reply or tr(L, "default_reply")).strip() + "\n")
         notes: list[str] = []
         questions: list[str] = []
         missing: list[str] = []
 
         if not draft.product_text:
             missing.append("product")
-            questions.append("Which product is this for?")
+            questions.append(tr(L, "q_product"))
         if not draft.segment_text:
             missing.append("segment")
-            questions.append("Which customer segment?")
+            questions.append(tr(L, "q_segment"))
 
         # Visual style (how the image looks). Optional; defaults to photo.
         visual_style = tax.normalise("visual_style", draft.visual_style)
         if draft.visual_style and not visual_style:
-            notes.append(f'visual style "{draft.visual_style}" isn\'t available '
-                         f'({", ".join(tax.allowed("visual_style"))}); using {s.default_visual_style}')
+            notes.append(tr(L, "note_visual_unavailable", raw=draft.visual_style,
+                            allowed=", ".join(tax.allowed("visual_style")), value=s.default_visual_style))
 
         # Content profile. Only an unrecognised value is asked about; a missing one gets a default.
         defaults = {"style": s.default_style, "tone": s.default_tone, "format": tax.allowed("format")[0]}
@@ -133,39 +151,38 @@ class Orchestrator:
             value = tax.normalise(fld, raw)
             if value:
                 if raw and raw.strip().lower() != value:
-                    notes.append(f'{fld} "{raw}" → {value}')
+                    notes.append(tr(L, "note_mapped", field=field_name(L, fld), raw=raw, value=value))
             elif raw and (vs := tax.normalise("visual_style", raw)):
                 # e.g. "การ์ตูน" given as the style: it describes the image, not the content style
                 visual_style = visual_style or vs
-                notes.append(f'"{raw}" is a visual style → images in {vs} style')
+                notes.append(tr(L, "note_visual_moved", raw=raw, value=vs))
                 value = defaults[fld]
-                notes.append(f"{fld}: {value} (default; tell me if you want another)")
+                notes.append(tr(L, "note_default", field=field_name(L, fld), value=value))
             elif raw and len(allowed) == 1:
                 value = allowed[0]  # e.g. "2 ภาพ" as format: there is only one format
-                notes.append(f'format: {value} (the only format available)')
+                notes.append(tr(L, "note_only_format", value=value))
             elif raw:
                 missing.append(fld)
-                questions.append(f'I don\'t recognise the {fld} "{raw}". Pick one of: {", ".join(allowed)}.')
+                questions.append(tr(L, "q_unknown_value", field=field_name(L, fld), raw=raw, allowed=", ".join(allowed)))
                 continue
             else:
                 value = defaults[fld]
                 if len(allowed) > 1:
-                    notes.append(f"{fld}: {value} (default; tell me if you want another)")
+                    notes.append(tr(L, "note_default", field=field_name(L, fld), value=value))
             profile_vals[fld] = value
         visual_style = visual_style or s.default_visual_style
 
         count = draft.count
         if count is None or count < 1:
             missing.append("count")
-            questions.append(f"How many pieces would you like (1–{s.max_pieces_per_request})?")
+            questions.append(tr(L, "q_count", max=s.max_pieces_per_request))
         elif count > s.max_pieces_per_request:
-            notes.append(f"You asked for {count} pieces; the prototype makes up to {s.max_pieces_per_request}, so I'll make {s.max_pieces_per_request}.")
+            notes.append(tr(L, "note_clamped", n=count, max=s.max_pieces_per_request))
             count = s.max_pieces_per_request
 
         if questions:
-            hint = "You can answer like: Product: … Segment: … Style: … Tone: … Make 3 pieces."
             return NeedsInput(
-                question="I need a bit more before I start. " + " ".join(questions) + "\n\n" + hint,
+                question=tr(L, "need_more") + " " + " ".join(questions) + "\n\n" + tr(L, "hint"),
                 missing=missing,
                 data={"extracted": draft.model_dump(exclude_none=True)},
             )
@@ -189,10 +206,10 @@ class Orchestrator:
 
         channel = CHANNELS.get((draft.channel or "").strip().lower(), None)
         if draft.channel and not channel:
-            notes.append(f'channel "{draft.channel}" is not supported yet; using {s.default_channel}')
+            notes.append(tr(L, "note_channel", raw=draft.channel, value=s.default_channel))
         language = LANGUAGES.get((draft.language or "").strip().lower(), None)
         if draft.language and not language:
-            notes.append(f'language "{draft.language}" is not supported; using {s.default_language}')
+            notes.append(tr(L, "note_language", raw=draft.language, value=s.default_language))
 
         profile = ContentProfile.model_validate(
             {"product": product_id, **profile_vals},
@@ -232,6 +249,7 @@ class Orchestrator:
             segment_knowledge=seg_k,
             product_knowledge=prod_k,
             notes=notes,
+            lang=L,
         )
 
     def _entity_question(self, m: EntityMatch, kind: str) -> str | None:
@@ -240,10 +258,12 @@ class Orchestrator:
         names = [m.name] if m.name and m.score >= SUGGEST_FLOOR else []
         names += [a.name for a in m.alternatives if a.score >= SUGGEST_FLOOR]
         names = list(dict.fromkeys(names))[:3]
+        L = self.lang
         if names:
-            return f'For the {kind} "{m.text}", did you mean ' + " or ".join(f"*{n}*" for n in names) + "?"
-        known = ", ".join(self.ctx.km.catalog(kind).values()) or "none loaded"
-        return f'I couldn\'t match the {kind} "{m.text}" to a known {kind}. Known {kind}s: {known}. Which one?'
+            options = tr(L, "or").join(f"*{n}*" for n in names)
+            return tr(L, "did_you_mean", field=field_name(L, kind), text=m.text, options=options)
+        known = ", ".join(self.ctx.km.catalog(kind).values()) or tr(L, "none_loaded")
+        return tr(L, "unknown_entity", field=field_name(L, kind), text=m.text, known=known)
 
     # ---- 5. plan angles ------------------------------------------------
     async def plan_angles(self, u: Understood, count: int, avoid: list[str] | None = None) -> list[str]:
@@ -255,6 +275,7 @@ class Orchestrator:
             "objective": r.objective,
             "segment_knowledge": [c.text for c in u.segment_knowledge],
             "avoid": avoid or [],
+            "write_angles_in": "Thai" if u.lang == "th" else "English",
         }
         async with self.rl.step(
             "plan_angles", request_id=self.request_id, provider=self.ctx.llm.provider_name, model=self.ctx.llm.model

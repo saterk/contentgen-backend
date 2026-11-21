@@ -11,6 +11,7 @@ from app.pipeline.checks.copy_judge import judge_copy
 from app.pipeline.checks.copy_rules import check_copy_rules
 from app.pipeline.checks.image_judge import check_image_rules, judge_image
 from app.pipeline.context import AppContext
+from app.pipeline.i18n import t as tr
 from app.pipeline.image_agent import generate_images
 from app.pipeline.orchestrator import Understood
 from app.pipeline.store import save_check, save_image, set_status
@@ -32,8 +33,8 @@ IMAGE_RETRY_ADJUSTMENT = (
 )
 
 
-def brief_markdown(piece: int, brief: ContentBrief, disclaimer_text: str | None) -> str:
-    lines = [f"**Piece {piece} — {brief.headline}**", brief.body]
+def brief_markdown(piece: int, brief: ContentBrief, disclaimer_text: str | None, lang: str = "en") -> str:
+    lines = [f"**{tr(lang, 'piece', n=piece)} — {brief.headline}**", brief.body]
     lines += [f"• {line} `{fid}`" for line, fid in zip(brief.benefit_lines, brief.benefit_fact_ids)]
     lines.append(f"**CTA:** {brief.cta_text}")
     if disclaimer_text:
@@ -58,15 +59,18 @@ async def process_piece(
     known_facts = ctx.km.known_fact_ids(req.product_id or "")
     facts_by_id = {c.fact_id: c for c in u.product_knowledge if c.fact_id}
 
-    async def step(name: str, label: str) -> None:
-        await emit(ev.Event(type=ev.STEP, text=f"[Piece {piece}] {label}\n", piece=piece, item_id=item_id, data={"step": name}))
+    L = u.lang
+    tag = f"[{tr(L, 'piece', n=piece)}]"
+
+    async def step(name: str, label_key: str) -> None:
+        await emit(ev.Event(type=ev.STEP, text=f"{tag} {tr(L, label_key)}\n", piece=piece, item_id=item_id, data={"step": name}))
 
     # ---- copy: brief + checks, one automatic retry --------------------------
     feedback: list[str] = []
     brief: ContentBrief | None = None
     for attempt in (1, 2):
         set_status(ctx.engine, item_id, ItemStatus.generating_copy)
-        await step("design_brief", "Drafting copy and visual brief…" if attempt == 1 else "Redrafting copy with the check feedback…")
+        await step("design_brief", "step_drafting" if attempt == 1 else "step_redrafting")
         budget.use("design_brief")
         async with rl.step("design_brief", request_id=req.id, item_id=item_id,
                            provider=ctx.llm.provider_name, model=ctx.llm.model) as rec:
@@ -74,7 +78,7 @@ async def process_piece(
             rec.add(res.input_tokens, res.output_tokens, res.cost_usd)
         brief = res.value
 
-        await step("copy_check", "Checking copy…")
+        await step("copy_check", "step_copy_check")
         judgement = None
         async with rl.step("copy_check", request_id=req.id, item_id=item_id,
                            provider=ctx.judge_llm.provider_name if s.judge_enabled else "rules",
@@ -101,17 +105,17 @@ async def process_piece(
                 feedback.append(f"judge scores too low: {judgement.model_dump(exclude={'risky_claims'})}")
         set_status(ctx.engine, item_id, ItemStatus.copy_check_failed, brief_json=brief.model_dump_json())
         await emit(ev.Event(
-            type=ev.CHECK_FAILED, text=f"[Piece {piece}] Copy check failed: {'; '.join(feedback)}\n",
+            type=ev.CHECK_FAILED, text=f"{tag} {tr(L, 'copy_failed', findings='; '.join(feedback))}\n",
             piece=piece, item_id=item_id, data={"stage": "copy", "attempt": attempt, "findings": feedback},
         ))
     else:
-        return await _needs_attention(ctx, item_id, piece, emit, "copy failed the checks twice")
+        return await _needs_attention(ctx, item_id, piece, emit, tr(L, "reason_copy_twice"), L)
 
     assert brief is not None
     disclaimer = ctx.kb.disclaimer(brief.disclaimer_id)
     set_status(ctx.engine, item_id, ItemStatus.generating_copy, brief_json=brief.model_dump_json())
     await emit(ev.Event(
-        type=ev.BRIEF_READY, text=brief_markdown(piece, brief, disclaimer.text if disclaimer else None),
+        type=ev.BRIEF_READY, text=brief_markdown(piece, brief, disclaimer.text if disclaimer else None, L),
         piece=piece, item_id=item_id,
     ))
 
@@ -124,14 +128,14 @@ async def process_piece(
     any_passed = False
     for attempt in (1, 2):
         set_status(ctx.engine, item_id, ItemStatus.generating_images)
-        await step("generate_images", "Generating prototype images…" if attempt == 1 else "Regenerating images with an adjusted prompt…")
+        await step("generate_images", "step_images" if attempt == 1 else "step_reimages")
         async with rl.step("generate_images", request_id=req.id, item_id=item_id,
                            provider=ctx.images.provider_name, model=ctx.images.model) as rec:
             saved = await generate_images(ctx, item_id, version, brief, attempt, visual_style=req.visual_style,
                                           adjustment=IMAGE_RETRY_ADJUSTMENT if attempt == 2 else None)
             rec.add(cost_usd=sum(x.cost_usd for x in saved))
 
-        await step("image_check", "Checking images…")
+        await step("image_check", "step_image_check")
         findings: list[str] = []
         for img in saved:
             j = None
@@ -163,16 +167,16 @@ async def process_piece(
             break
         set_status(ctx.engine, item_id, ItemStatus.image_check_failed)
         await emit(ev.Event(
-            type=ev.CHECK_FAILED, text=f"[Piece {piece}] Image check failed: {' | '.join(findings)}\n",
+            type=ev.CHECK_FAILED, text=f"{tag} {tr(L, 'image_failed', findings=' | '.join(findings))}\n",
             piece=piece, item_id=item_id, data={"stage": "image", "attempt": attempt, "findings": findings},
         ))
     else:
-        return await _needs_attention(ctx, item_id, piece, emit, "no image passed the checks after a retry")
+        return await _needs_attention(ctx, item_id, piece, emit, tr(L, "reason_images"), L)
 
     await emit(ev.Event(type=ev.IMAGES_READY, piece=piece, item_id=item_id, data={"count": len(saved)}))
     set_status(ctx.engine, item_id, ItemStatus.pending_review)
     await emit(ev.Event(
-        type=ev.ITEM_READY, text=f"[Piece {piece}] Ready for review.\n",
+        type=ev.ITEM_READY, text=f"{tag} {tr(L, 'ready')}\n",
         piece=piece, item_id=item_id, data={"status": ItemStatus.pending_review.value},
     ))
     return ItemStatus.pending_review
@@ -193,10 +197,12 @@ def _image_findings(j) -> list[str]:
     return out
 
 
-async def _needs_attention(ctx: AppContext, item_id: str, piece: int, emit: Emit, reason: str) -> ItemStatus:
+async def _needs_attention(
+    ctx: AppContext, item_id: str, piece: int, emit: Emit, reason: str, lang: str = "en"
+) -> ItemStatus:
     set_status(ctx.engine, item_id, ItemStatus.needs_attention, error=reason)
     await emit(ev.Event(
-        type=ev.ITEM_READY, text=f"[Piece {piece}] Needs attention: {reason}.\n",
+        type=ev.ITEM_READY, text=f"[{tr(lang, 'piece', n=piece)}] {tr(lang, 'needs_attention', reason=reason)}\n",
         piece=piece, item_id=item_id, data={"status": ItemStatus.needs_attention.value, "reason": reason},
     ))
     return ItemStatus.needs_attention

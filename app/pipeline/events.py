@@ -16,8 +16,9 @@ NEEDS_INPUT = "needs_input"
 ITEM_READY = "item_ready"
 DONE = "done"
 ERROR = "error"
+REPLY = "reply"
 
-FINAL_TYPES = {NEEDS_INPUT, DONE, ERROR}
+FINAL_TYPES = {NEEDS_INPUT, DONE, ERROR, REPLY}
 
 
 @dataclass

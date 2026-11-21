@@ -178,7 +178,7 @@ def test_openai_sdk_non_streaming(client):
         model="content-creator-brief",
         messages=[{"role": "user", "content": FULL_REQUEST.format(n=2)}],
     )
-    assert completion.choices[0].message.content.startswith("Reading your request")
+    assert completion.choices[0].message.content.startswith("Here's what I understood")
     x_events = completion.model_extra["x_events"]
     assert [e["status"] for e in x_events if e["type"] == "item_ready"] == ["pending_review"] * 2
     assert completion.usage and completion.usage.total_tokens > 0

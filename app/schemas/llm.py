@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
 class RequirementDraft(BaseModel):
     """What the orchestrator extracted from the chat. Free text; normalised afterwards."""
 
+    # request: asks for content (new, or referring back to an earlier one)
+    # answer:  answers the assistant's clarifying question
+    # chat:    anything else (greeting, "who are you", a question) -> reply only, nothing generated
+    intent: Literal["request", "answer", "chat"] = "request"
+    reply: str | None = None  # for intent=chat: the assistant's short answer, in the user's language
     product_text: str | None = None
     segment_text: str | None = None
     style: str | None = None
