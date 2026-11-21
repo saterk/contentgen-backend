@@ -1,4 +1,4 @@
-"""Database engine and session helpers (SQLite now, Postgres-ready via SQLModel)."""
+"""Database engine and session helpers: SQLite locally, Postgres (e.g. Neon) in the cloud."""
 
 from __future__ import annotations
 
@@ -10,15 +10,21 @@ from sqlalchemy import Engine, event
 from sqlmodel import Session, SQLModel, create_engine
 
 
+def normalise_url(url: str) -> str:
+    """Accept the URLs Neon / Render / Supabase hand out and use the psycopg 3 driver."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
 def make_engine(url: str) -> Engine:
-    connect_args: dict = {}
+    url = normalise_url(url)
     if url.startswith("sqlite"):
-        connect_args["check_same_thread"] = False
         path = url.removeprefix("sqlite:///")
         if path and path != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
-    engine = create_engine(url, connect_args=connect_args)
-    if url.startswith("sqlite"):
+        engine = create_engine(url, connect_args={"check_same_thread": False})
 
         @event.listens_for(engine, "connect")
         def _sqlite_pragmas(dbapi_conn, _record) -> None:  # fast, still crash-safe commits
@@ -27,6 +33,9 @@ def make_engine(url: str) -> Engine:
             cur.execute("PRAGMA synchronous=NORMAL")
             cur.execute("PRAGMA busy_timeout=5000")
             cur.close()
+    else:
+        # Neon suspends idle compute and drops idle connections: check before use and recycle.
+        engine = create_engine(url, pool_pre_ping=True, pool_recycle=300, pool_size=5, max_overflow=5)
 
     from app import models  # noqa: F401  (registers tables)
 

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import ROOT_DIR, Settings
+from app.config import BACKEND_DIR, Settings
 from app.kb.ingest import ingest_with_settings
 from app.main import create_app
 from app.pipeline.context import AppContext
@@ -24,6 +24,8 @@ API_KEY = "test-key"
 def make_settings(data_dir: Path, **overrides) -> Settings:
     base = dict(
         data_dir=data_dir,
+        kb_dir=data_dir / "kb",
+        kb_source_dir=data_dir / "kb_source",
         app_api_key=API_KEY,
         llm_provider="mock",
         llm_model="mock-llm-1",
@@ -44,8 +46,8 @@ def make_settings(data_dir: Path, **overrides) -> Settings:
 @pytest.fixture
 def data_dir(tmp_path: Path) -> Path:
     d = tmp_path / "data"
-    shutil.copytree(ROOT_DIR / "data" / "kb", d / "kb", ignore=shutil.ignore_patterns("vectors.json", "manifest.json"))
-    shutil.copytree(ROOT_DIR / "data" / "kb_source", d / "kb_source")
+    shutil.copytree(BACKEND_DIR / "kb", d / "kb", ignore=shutil.ignore_patterns("manifest.json"))
+    shutil.copytree(BACKEND_DIR / "kb_source", d / "kb_source")
     return d
 
 

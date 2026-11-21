@@ -122,7 +122,7 @@ class LocalVectorStore(VectorStore):
 def make_vector_store(settings) -> VectorStore:
     kind = settings.vector_store
     if kind in ("local", ""):
-        return LocalVectorStore(settings.kb_dir / "vectors.json")
+        return LocalVectorStore(settings.data_path / "vectors.json")  # runtime data, not in git
     if kind == "chroma":
         from app.kb.vectorstore_chroma import ChromaVectorStore, collection_name
 

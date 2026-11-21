@@ -35,7 +35,7 @@ def test_chunk_text_splits_long_text_with_overlap():
 
 def test_reingest_removes_older_versions(settings):
     ingest_with_settings(settings, kb_version="test.2")
-    store = LocalVectorStore(settings.kb_dir / "vectors.json")
+    store = LocalVectorStore(settings.data_path / "vectors.json")
     versions = {r.metadata["kb_version"] for r in store.list()}
     assert versions == {"test.2"}
 
@@ -130,5 +130,5 @@ def test_resolve_new_products(ctx, text, product_id):
 def test_removed_source_docs_leave_the_kb(settings):
     (settings.kb_source_dir / "segments" / "first_jobber.md").unlink()
     ingest_with_settings(settings, kb_version="test.3")
-    store = LocalVectorStore(settings.kb_dir / "vectors.json")
+    store = LocalVectorStore(settings.data_path / "vectors.json")
     assert "first_jobber" not in {r.metadata["entity_id"] for r in store.list()}

@@ -1,0 +1,30 @@
+{
+  "_note": "Allowed content-profile values. Keys are the stored values; lists are aliases the orchestrator maps from chat text. The business can edit this file without a code change.",
+  "styles": {
+    "rational": ["rational", "logical", "fact based", "facts", "เหตุผล"],
+    "story": ["story", "storytelling", "narrative", "เล่าเรื่อง"],
+    "testimonial": ["testimonial", "customer story", "review", "รีวิว"],
+    "educational": ["educational", "education", "explainer", "how to", "ให้ความรู้"]
+  },
+  "tones": {
+    "warm": ["warm", "heartfelt", "อบอุ่น"],
+    "friendly": ["friendly", "casual", "เป็นกันเอง"],
+    "reassuring": ["reassuring", "calm", "comforting", "อุ่นใจ"],
+    "urgent": ["urgent", "act now", "เร่งด่วน"]
+  },
+  "visual_styles": {
+    "photo": ["photo", "photography", "photographic", "realistic", "real people", "ภาพถ่าย", "ภาพจริง", "สมจริง"],
+    "cartoon": ["cartoon", "illustration", "flat illustration", "drawing", "anime", "การ์ตูน", "ภาพวาด", "ภาพประกอบ", "แนวการ์ตูน"],
+    "3d": ["3d", "3d render", "3d cartoon", "clay", "สามมิติ", "3 มิติ"]
+  },
+  "formats": {
+    "single_image_cta": [
+      "single image with cta",
+      "single image cta",
+      "single image",
+      "image with cta",
+      "image + cta",
+      "ภาพเดี่ยว"
+    ]
+  }
+}

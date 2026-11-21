@@ -13,6 +13,8 @@ dependencies = [
     "pillow>=10.1",
     "openai>=1.40",  # client for OpenAI-compatible APIs (OpenRouter, OpenAI)
     "chromadb-client>=1.0",  # HTTP-only Chroma client (Chroma Cloud / self-hosted)
+    "boto3>=1.34",  # Cloudflare R2 (S3-compatible) image storage
+    "psycopg[binary]>=3.2",  # Postgres driver (Neon)
 ]
 
 [project.optional-dependencies]

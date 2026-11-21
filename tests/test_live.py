@@ -23,8 +23,10 @@ pytestmark = pytest.mark.skipif(os.environ.get("RUN_LIVE") != "1", reason="set R
 
 
 def test_live_free_form_request(data_dir):
-    s = Settings(_env_file=BACKEND_DIR / ".env", data_dir=data_dir, image_provider="mock", image_size="216x270",
-                 vector_store="local")  # never write test data to the cloud KB
+    s = Settings(_env_file=BACKEND_DIR / ".env", data_dir=data_dir, kb_dir=data_dir / "kb", kb_source_dir=data_dir / "kb_source",
+                 image_provider="mock", image_size="216x270",
+                 vector_store="local", database_url="", image_store="local",
+                 allow_local_storage=True)  # never write test data to the cloud stores
     if s.llm_provider == "mock":
         pytest.skip("LLM_PROVIDER is mock in .env")
     ingest_with_settings(s, kb_version="live")

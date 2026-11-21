@@ -71,7 +71,8 @@ async def generate_images(
     for n, g in enumerate(generated, start=1):
         data, w, h, ext = await asyncio.to_thread(fit_to_size, g.data, target)
         name = f"{item_id}_v{item_version}_a{attempt}_{n}.{ext}"
-        (s.images_dir / name).write_bytes(data)
+        mime = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}.get(ext, "application/octet-stream")
+        await asyncio.to_thread(ctx.storage.save, name, data, mime)
         saved.append(
             SavedImage(
                 file_name=name,

@@ -35,6 +35,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
+        allow_origin_regex=settings.cors_origin_regex or None,  # e.g. Vercel preview deployments
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -50,6 +51,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "judge": f"{ctx.judge_llm.provider_name}:{ctx.judge_llm.model}" if settings.judge_enabled else "disabled",
                 "image": f"{ctx.images.provider_name}:{ctx.images.model}",
                 "embedding": f"{ctx.embedder.provider_name}:{ctx.embedder.model}",
+                "image_store": ctx.storage.name,
+                "database": "postgres" if ctx.engine.dialect.name == "postgresql" else ctx.engine.dialect.name,
                 "vector_store": (
                     f"chroma:{settings.chroma_database}/{getattr(getattr(ctx.store, 'collection', None), 'name', '')}"
                     if settings.vector_store == "chroma"
@@ -61,5 +64,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_routes.router)
     app.include_router(openai_compat.router)
     app.include_router(items.router)
-    app.mount("/images", StaticFiles(directory=settings.images_dir), name="images")
+    if ctx.storage.name == "local":
+        app.mount("/images", StaticFiles(directory=settings.images_dir), name="images")
     return app

@@ -33,10 +33,10 @@ def _item_summary(item: ContentItem) -> dict:
     }
 
 
-def _image(img: ImageAsset) -> dict:
+def _image(img: ImageAsset, ctx: AppContext) -> dict:
     return {
         "id": img.id,
-        "url": f"/images/{img.path}",
+        "url": ctx.storage.url(img.path),
         "item_version": img.item_version,
         "variant_no": img.variant_no,
         "attempt": img.attempt,
@@ -72,9 +72,9 @@ def get_item(item_id: str, ctx: AppContext = Depends(get_ctx)) -> dict:
             **out,
             "request": json.loads(req.request_json) if req else None,
             "disclaimer": disclaimer,
-            "images": [_image(i) for i in current],
+            "images": [_image(i, ctx) for i in current],
             "chosen_image_id": next((i.id for i in current if i.passed), None),
-            "image_history": [_image(i) for i in images if i.item_version != item.version],
+            "image_history": [_image(i, ctx) for i in images if i.item_version != item.version],
             "checks": [
                 {
                     "stage": c.stage,

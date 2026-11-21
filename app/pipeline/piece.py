@@ -140,7 +140,7 @@ async def process_piece(
                                model=ctx.judge_llm.model if s.judge_enabled else None) as rec:
                 rule_hits = check_image_rules(img.width, img.height, s.image_wh)
                 if s.judge_enabled:
-                    jres = await judge_image(ctx, s.images_dir / img.file_name, brief.visual)
+                    jres = await judge_image(ctx, ctx.storage.local_path(img.file_name), brief.visual)
                     rec.add(jres.input_tokens, jres.output_tokens, jres.cost_usd)
                     j = jres.value
             ok = not rule_hits and (j is None or j.passed)

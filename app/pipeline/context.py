@@ -18,6 +18,7 @@ from app.pipeline.tools.km_tools import KMTools
 from app.providers import make_image_provider, make_llm
 from app.providers.image_base import ImageProvider
 from app.providers.llm_base import LLMProvider
+from app.storage import ImageStore, make_image_store
 
 log = logging.getLogger("content_creator")
 
@@ -49,6 +50,7 @@ class AppContext:
     kb: KBFiles
     km: KMTools
     prompts: Prompts
+    storage: ImageStore
     warnings: list[str] = field(default_factory=list)
     _sem: asyncio.Semaphore | None = field(default=None, init=False, repr=False)
     _sem_loop: asyncio.AbstractEventLoop | None = field(default=None, init=False, repr=False)
@@ -79,6 +81,7 @@ class AppContext:
             kb=kb,
             km=KMTools(store=store, embedder=embedder, kb=kb, settings=settings),
             prompts=Prompts(settings.prompts_dir, settings.prompt_version),
+            storage=make_image_store(settings),
         )
         ctx.check_kb()
         return ctx

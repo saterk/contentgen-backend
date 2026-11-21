@@ -1,0 +1,50 @@
+{
+  "kb_version": "2026-11-20.5",
+  "embedding_provider": "openrouter",
+  "embedding_model": "openai/text-embedding-3-small",
+  "ingested_at": "2026-11-20T16:42:23.796801+00:00",
+  "entities": {
+    "first_jobber": {
+      "chunks": 6,
+      "facts": 0,
+      "catalog_entries": 12,
+      "removed_old": 0
+    },
+    "happy_retirement": {
+      "chunks": 6,
+      "facts": 0,
+      "catalog_entries": 9,
+      "removed_old": 0
+    },
+    "young_families": {
+      "chunks": 6,
+      "facts": 0,
+      "catalog_entries": 7,
+      "removed_old": 0
+    },
+    "annuity": {
+      "chunks": 9,
+      "facts": 5,
+      "catalog_entries": 7,
+      "removed_old": 0
+    },
+    "critical_illness": {
+      "chunks": 9,
+      "facts": 5,
+      "catalog_entries": 9,
+      "removed_old": 0
+    },
+    "endowment": {
+      "chunks": 9,
+      "facts": 5,
+      "catalog_entries": 9,
+      "removed_old": 0
+    },
+    "health": {
+      "chunks": 9,
+      "facts": 5,
+      "catalog_entries": 8,
+      "removed_old": 0
+    }
+  }
+}

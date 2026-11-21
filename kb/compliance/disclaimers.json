@@ -1,0 +1,27 @@
+[
+  {
+    "id": "DISC-CI-01",
+    "product_id": "critical_illness",
+    "text": "[PLACEHOLDER – replace with the approved disclaimer] ผู้ซื้อควรทำความเข้าใจรายละเอียดความคุ้มครองและเงื่อนไขก่อนตัดสินใจทำประกันภัยทุกครั้ง"
+  },
+  {
+    "id": "DISC-CI-02",
+    "product_id": "critical_illness",
+    "text": "[PLACEHOLDER – replace with the approved disclaimer] Read the coverage details and conditions before you decide."
+  },
+  {
+    "id": "DISC-END-01",
+    "product_id": "endowment",
+    "text": "[PLACEHOLDER – replace with the approved disclaimer] ผู้ซื้อควรทำความเข้าใจรายละเอียดความคุ้มครอง เงื่อนไข และผลประโยชน์ก่อนตัดสินใจทำประกันภัยทุกครั้ง"
+  },
+  {
+    "id": "DISC-ANN-01",
+    "product_id": "annuity",
+    "text": "[PLACEHOLDER – replace with the approved disclaimer] ผู้ซื้อควรทำความเข้าใจรายละเอียดผลประโยชน์และเงื่อนไขการรับเงินบำนาญก่อนตัดสินใจทำประกันภัยทุกครั้ง"
+  },
+  {
+    "id": "DISC-HLT-01",
+    "product_id": "health",
+    "text": "[PLACEHOLDER – replace with the approved disclaimer] ความคุ้มครองเป็นไปตามเงื่อนไขและข้อยกเว้นที่ระบุในกรมธรรม์ ผู้ซื้อควรทำความเข้าใจก่อนตัดสินใจ"
+  }
+]

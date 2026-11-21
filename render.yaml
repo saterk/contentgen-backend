@@ -1,0 +1,87 @@
+# Render Blueprint for the backend (New → Blueprint → pick this repo).
+# Secrets are marked `sync: false`: Render asks for them when you create the service.
+# Storage: images in Cloudflare R2, database in Neon Postgres, vectors in Chroma Cloud,
+# so the service needs no persistent disk and runs on the free plan.
+
+services:
+  - type: web
+    name: contentgen-backend
+    runtime: python
+    plan: free # free instances sleep after 15 min idle (first request then takes ~1 min)
+    region: singapore
+    buildCommand: pip install -e .  # editable: the app runs from the checkout, next to prompts/ and kb/
+    # --proxy-headers: see the real client IP behind Render's proxy (needed for login lockout)
+    startCommand: uvicorn app.main:create_app --factory --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+
+      # ---- LLM, images, embeddings (OpenRouter) ----
+      - key: LLM_PROVIDER
+        value: openrouter
+      - key: LLM_MODEL
+        value: qwen/qwen3.7-flash
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_REASONING
+        value: "off"
+      - key: JUDGE_ENABLED
+        value: "false"
+      - key: IMAGE_PROVIDER
+        value: openrouter
+      - key: IMAGE_MODEL
+        value: google/gemini-3.1-flash-lite-image
+      - key: EMBEDDING_PROVIDER
+        value: openrouter
+      - key: EMBEDDING_MODEL
+        value: openai/text-embedding-3-small
+      - key: KM_MATCH_THRESHOLD
+        value: "0.7"
+      - key: KM_AMBIGUITY_MARGIN
+        value: "0.08"
+      - key: VARIETY_THRESHOLD
+        value: "0.85"
+
+      # ---- vectors: Chroma Cloud ----
+      - key: VECTOR_STORE
+        value: chroma
+      - key: CHROMA_API_KEY
+        sync: false
+      - key: CHROMA_TENANT
+        sync: false
+      - key: CHROMA_DATABASE
+        value: ContentGen
+
+      - key: ALLOW_LOCAL_STORAGE # fail fast if any of the stores below is missing
+        value: "false"
+
+      # ---- database: Neon Postgres ----
+      - key: DATABASE_URL # postgresql://…?sslmode=require (Neon "pooled connection" string)
+        sync: false
+
+      # ---- images: Cloudflare R2 ----
+      - key: IMAGE_STORE
+        value: r2
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+
+      # ---- web app access ----
+      - key: CORS_ORIGINS # your Vercel URL, e.g. https://contentgen.vercel.app
+        sync: false
+      - key: CORS_ORIGIN_REGEX # optional, Vercel previews, e.g. https://contentgen-.*\.vercel\.app
+        sync: false
+      - key: AUTH_USERNAME # entered on Render, not kept in git
+        sync: false
+      - key: AUTH_PASSWORD_HASH # python -m app.auth hash-password
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: APP_API_KEY
+        generateValue: true
