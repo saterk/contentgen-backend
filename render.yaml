@@ -9,7 +9,7 @@ services:
     runtime: python
     plan: free # free instances sleep after 15 min idle (first request then takes ~1 min)
     region: singapore
-    buildCommand: pip install -e .  # editable: the app runs from the checkout, next to prompts/ and kb/
+    buildCommand: pip install -r requirements.txt  # the app runs from the checkout, next to prompts/ and kb/
     # --proxy-headers: see the real client IP behind Render's proxy (needed for login lockout)
     startCommand: uvicorn app.main:create_app --factory --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"
     healthCheckPath: /api/health

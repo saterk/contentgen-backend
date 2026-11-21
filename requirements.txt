@@ -1,0 +1,15 @@
+# Runtime dependencies for the backend (Render: pip install -r requirements.txt).
+# Pinned to the versions tested locally. Keep in sync with pyproject.toml.
+# Test-only packages (pytest, httpx) are not needed on the server.
+
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+sqlmodel==0.0.50
+pydantic==2.14.4
+pydantic-settings==2.16.3
+PyYAML==6.0.3
+pillow==13.0.0
+openai==3.57.0             # OpenRouter (OpenAI-compatible) LLM, images, embeddings
+chromadb-client==1.5.9     # Chroma Cloud (HTTP-only client)
+boto3==1.44.7              # Cloudflare R2 (S3-compatible)
+psycopg[binary]==3.3.9     # Neon Postgres
