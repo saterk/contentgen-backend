@@ -25,7 +25,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     ctx = AppContext.build(settings)
 
-    app = FastAPI(title="Content Creator (Module 3 prototype)", version="0.1.0")
+    app = FastAPI(title="AIA Thailand Content Creator (Module 3 prototype)", version="0.1.0")
     app.state.ctx = ctx
     app.state.auth_secret = settings.auth_secret or secrets.token_urlsafe(32)
     app.state.login_guard = LoginGuard()

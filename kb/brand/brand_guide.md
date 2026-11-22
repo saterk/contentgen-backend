@@ -5,6 +5,11 @@ Replace with the approved brand guide. The orchestrator loads this whole file in
 default) and then the "Image style suffix" to every image prompt. The text of those sections goes
 into the prompt word for word, so keep only prompt text under them.
 
+## Brand
+
+- Advertiser: AIA Thailand. The ads are made by its Marketing Department.
+- The AIA logo is added in the layout. Never draw it, or any other logo, in the image.
+
 ## Voice
 
 - Warm, plain and respectful. Speak to the reader as "คุณ".

@@ -84,7 +84,7 @@ def _unlabelled_answer(text: str, question: str, req: dict[str, Any], has_count:
 
 
 MOCK_REPLY = (
-    "I'm the content creator assistant (mock). Tell me the product, the customer segment and how many "
+    "I'm the content creator assistant for AIA Thailand's Marketing Department (mock). Tell me the product, the customer segment and how many "
     "pieces you need, e.g. Product: CI. Segment: young families. Make 3 pieces."
 )
 

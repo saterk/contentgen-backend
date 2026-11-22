@@ -107,9 +107,9 @@ MESSAGES: dict[str, dict[Lang, str]] = {
     "done_attention": {"en": "Needs attention: {items}", "th": "ต้องตรวจสอบ: {items}"},
     "error": {"en": "Sorry, something went wrong: {detail}", "th": "ขออภัย เกิดข้อผิดพลาด: {detail}"},
     "default_reply": {
-        "en": "I'm the content creator assistant. Tell me the product, the customer segment and how many pieces "
+        "en": "I'm the content creator assistant for AIA Thailand's Marketing Department. Tell me the product, the customer segment and how many pieces "
               "you need, and I'll write the copy and make prototype images for each piece.",
-        "th": "ผมคือผู้ช่วยสร้างคอนเทนต์โฆษณาประกันครับ บอกผลิตภัณฑ์ กลุ่มลูกค้า และจำนวนชิ้นที่ต้องการ "
+        "th": "ผมคือผู้ช่วยสร้างคอนเทนต์ของฝ่ายการตลาด เอไอเอ ประเทศไทยครับ บอกผลิตภัณฑ์ กลุ่มลูกค้า และจำนวนชิ้นที่ต้องการ "
               "แล้วผมจะเขียนข้อความและสร้างภาพตัวอย่างให้ครับ",
     },
 }
