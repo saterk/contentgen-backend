@@ -83,7 +83,8 @@ async def process_piece(
         async with rl.step("copy_check", request_id=req.id, item_id=item_id,
                            provider=ctx.judge_llm.provider_name if s.judge_enabled else "rules",
                            model=ctx.judge_llm.model if s.judge_enabled else None) as rec:
-            hits = check_copy_rules(brief, product_id=req.product_id or "", known_fact_ids=known_facts, kb=ctx.kb, settings=s)
+            hits = check_copy_rules(brief, product_id=req.product_id or "", known_fact_ids=known_facts, kb=ctx.kb, settings=s,
+                                   language=req.language)
             if s.judge_enabled:
                 cited = [facts_by_id[f] for f in brief.benefit_fact_ids if f in facts_by_id]
                 jres = await judge_copy(ctx, req, brief, cited, hits)

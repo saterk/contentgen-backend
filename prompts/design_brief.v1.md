@@ -22,7 +22,9 @@ Requirements:
 - Write the visual brief fields and the `image_prompt` in English for an image model. The prompt
   must describe no text, letters, numbers or logos, and avoid props that carry text (book titles,
   signs, screens, documents).
-- Write the copy in the requested language (Thai by default).
+- Write all copy (headline, body, benefit lines, CTA) only in the requested `language`: `th` = Thai,
+  `en` = English. Never use Chinese or any other language. In Thai copy, English is fine only for
+  names such as AIA or a product name.
 - Keep within the length limits given. Never use words such as "guaranteed", "100%" or
   "no exclusions", and never promise outcomes.
 - `rationale`: one or two sentences linking the brief to the profile and angle.

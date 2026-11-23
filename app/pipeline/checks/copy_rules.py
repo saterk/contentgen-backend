@@ -29,6 +29,39 @@ def banned_terms_in(text: str, banned: list[str]) -> list[str]:
     return [t for t in banned if contains_term(text, t)]
 
 
+def _script(ch: str) -> str | None:
+    o = ord(ch)
+    if 0x0E00 <= o <= 0x0E7F:
+        return "thai"
+    if 0x3040 <= o <= 0x30FF or 0x3400 <= o <= 0x9FFF or 0xF900 <= o <= 0xFAFF or 0xAC00 <= o <= 0xD7AF:
+        return "cjk"  # Chinese, Japanese kana, Korean: never expected in our copy
+    if ch.isascii() and ch.isalpha():
+        return "latin"
+    return None
+
+
+def language_problem(text: str, language: str) -> str | None:
+    """Why the copy is not in the requested language, or None.
+
+    LLMs sometimes drift into another language (e.g. Chinese) mid-request. Thai copy may still
+    contain English names ("AIA", "Endowment"), so it only needs to be mostly Thai.
+    """
+    counts = {"thai": 0, "cjk": 0, "latin": 0}
+    for ch in text:
+        if (sc := _script(ch)) is not None:
+            counts[sc] += 1
+    if counts["cjk"]:
+        return f"contains Chinese/Japanese/Korean characters; write only in {'Thai' if language == 'th' else 'English'}"
+    letters = counts["thai"] + counts["latin"]
+    if not letters:
+        return None
+    if language == "th" and counts["thai"] / letters < 0.5:
+        return "copy must be in Thai (English only for names such as AIA or product names)"
+    if language == "en" and counts["thai"] / letters > 0.1:
+        return "copy must be in English"
+    return None
+
+
 def check_copy_rules(
     brief: ContentBrief,
     *,
@@ -36,8 +69,12 @@ def check_copy_rules(
     known_fact_ids: set[str],
     kb: KBFiles,
     settings: Settings,
+    language: str | None = None,
 ) -> list[RuleHit]:
     hits: list[RuleHit] = []
+
+    if language and (problem := language_problem(copy_text(brief), language)):
+        hits.append(RuleHit("wrong_language", problem))
 
     for fid in brief.benefit_fact_ids:
         if fid not in known_fact_ids:

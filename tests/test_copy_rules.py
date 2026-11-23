@@ -49,3 +49,14 @@ def test_banned_terms_match_whole_words_only(ctx):
 def test_length_limits(ctx):
     hits = rules(ctx, headline="x" * (ctx.settings.headline_max_chars + 1), cta_text="y" * (ctx.settings.cta_max_chars + 1))
     assert sorted(h.detail.split()[0] for h in hits if h.rule == "too_long") == ["cta_text", "headline"]
+
+
+def test_language_problem():
+    from app.pipeline.checks.copy_rules import language_problem
+
+    assert language_problem("ออมเงินอย่างมีวินัย กับ AIA Endowment", "th") is None
+    assert "Chinese" in language_problem("守护孩子的未来，从每一顿温馨的晚餐开始", "th")
+    assert "Chinese" in language_problem("วางแผนการศึกษา 养成定期储蓄习惯", "th")
+    assert "Thai" in language_problem("Save with life cover and a maturity payout", "th")
+    assert language_problem("Save with life cover and a maturity payout", "en") is None
+    assert "English" in language_problem("ออมเงินอย่างมีวินัย พร้อมความคุ้มครอง", "en")
