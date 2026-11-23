@@ -81,6 +81,8 @@ services:
         sync: false
       - key: AUTH_PASSWORD_HASH # python -m app.auth hash-password
         sync: false
+      - key: AUTH_USERS # more users: name=hash,name=hash (python -m app.auth add-user NAME)
+        sync: false
       - key: AUTH_SECRET
         generateValue: true
       - key: APP_API_KEY

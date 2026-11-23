@@ -74,9 +74,10 @@ class Settings(BaseSettings):
     prompt_version: str = "v1"
     app_api_key: str = ""  # for scripts and SDK calls; empty = API-key access off (the web app logs in instead)
 
-    # Login (prototype: one fixed user)
+    # Login (prototype: fixed users, passwords stored as hashes only)
     auth_username: str = ""
     auth_password_hash: str = ""  # python -m app.auth hash-password
+    auth_users: str = ""  # more users: "name=hash,name=hash" (python -m app.auth add-user NAME)
     auth_secret: str = ""  # signs session tokens; empty -> random per process (logins reset on restart)
     auth_session_hours: float = 12
     cors_origins: str = "http://localhost:3000"  # comma-separated exact origins
@@ -164,3 +165,15 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def login_users(settings: "Settings") -> dict[str, str]:
+    """All login users as {lower-case username: password hash}: AUTH_USERNAME plus AUTH_USERS."""
+    users: dict[str, str] = {}
+    if settings.auth_username and settings.auth_password_hash:
+        users[settings.auth_username.strip().lower()] = settings.auth_password_hash.strip()
+    for entry in settings.auth_users.split(","):
+        name, sep, pw_hash = entry.strip().partition("=")
+        if sep and name.strip() and pw_hash.strip():
+            users[name.strip().lower()] = pw_hash.strip()
+    return users

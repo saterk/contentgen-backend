@@ -6,6 +6,7 @@ from fastapi import Request
 
 from app.api.errors import APIError
 from app.auth import verify_token
+from app.config import login_users
 from app.pipeline.context import AppContext
 
 
@@ -26,7 +27,7 @@ def require_app_token(request: Request) -> str:
     token = bearer(request)
     if token:
         user = verify_token(token, request.app.state.auth_secret)
-        if user:
+        if user and user.lower() in login_users(request.app.state.ctx.settings):  # a removed user's token stops working
             return user
         api_key = request.app.state.ctx.settings.app_api_key
         if api_key and secrets.compare_digest(token, api_key):  # empty APP_API_KEY = API-key access off

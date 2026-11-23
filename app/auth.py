@@ -1,6 +1,7 @@
-"""Prototype login: one fixed user, password stored as a PBKDF2 hash, signed session tokens.
+"""Prototype login: fixed users, passwords stored as PBKDF2 hashes, signed session tokens.
 
     python -m app.auth hash-password      # prints an AUTH_PASSWORD_HASH value for .env
+    python -m app.auth add-user NAME      # prints a NAME=hash entry for AUTH_USERS
 
 Tokens are `<base64url(payload)>.<base64url(hmac)>` with payload {"u": username, "exp": unix_time},
 signed with AUTH_SECRET. No server-side session store is needed.
@@ -112,12 +113,17 @@ class LoginGuard:
 
 
 def main() -> None:
-    if len(sys.argv) < 2 or sys.argv[1] != "hash-password":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+    name = sys.argv[2].strip().lower() if len(sys.argv) > 2 else ""
+    if cmd not in ("hash-password", "add-user") or (cmd == "add-user" and (not name or "=" in name or "," in name)):
         print(__doc__)
         sys.exit(1)
     pw = getpass.getpass("Password: ")
     if pw != getpass.getpass("Repeat: "):
         sys.exit("Passwords don't match")
+    if cmd == "add-user":
+        print(f"{name}={hash_password(pw)}   # add to AUTH_USERS (comma-separated)")
+        return
     print(f"AUTH_PASSWORD_HASH={hash_password(pw)}")
     print(f"AUTH_SECRET={secrets.token_urlsafe(32)}  # only if you don't have one yet")
 

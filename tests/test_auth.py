@@ -10,6 +10,7 @@ from app.main import create_app
 from tests.conftest import API_KEY, make_settings
 
 USER, PASSWORD = "chaiyote", "s3cret-test"
+USER2, PASSWORD2 = "mktadmin", "other-s3cret"
 
 
 @pytest.fixture
@@ -20,6 +21,7 @@ def auth_client(settings):
         settings.data_dir,
         auth_username=USER,
         auth_password_hash=hash_password(PASSWORD, iterations=1000),
+        auth_users=f"{USER2}={hash_password(PASSWORD2, iterations=1000)}",
         auth_secret="test-secret",
     )
     with TestClient(create_app(s)) as c:
@@ -122,3 +124,25 @@ def test_empty_app_api_key_disables_key_access(settings):
     with TestClient(create_app(s)) as c:
         assert c.get("/v1/models", headers={"Authorization": "Bearer "}).status_code == 401
         assert c.get("/v1/models", headers={"Authorization": "Bearer change-me"}).status_code == 401
+
+
+def test_second_user_from_auth_users(auth_client):
+    r = login(auth_client, "MktAdmin", PASSWORD2)
+    assert r.status_code == 200 and r.json()["username"] == USER2
+    h = {"Authorization": f"Bearer {r.json()['token']}"}
+    assert auth_client.get("/api/auth/me", headers=h).json() == {"username": USER2}
+    assert login(auth_client, USER2, PASSWORD).status_code == 401, "each user has their own password"
+    assert login(auth_client, USER, PASSWORD2).status_code == 401
+
+
+def test_login_users_parsing(settings):
+    from app.config import login_users
+
+    s = make_settings(settings.data_dir, auth_username="Alice", auth_password_hash="h1",
+                      auth_users=" bob=h2 , carol=pbkdf2_sha256$1$a$b ,broken, =h3")
+    assert login_users(s) == {"alice": "h1", "bob": "h2", "carol": "pbkdf2_sha256$1$a$b"}
+
+
+def test_token_of_removed_user_is_rejected(auth_client):
+    tok, _ = issue_token("ghost", "test-secret", 60)
+    assert auth_client.get("/api/auth/me", headers={"Authorization": f"Bearer {tok}"}).status_code == 401
